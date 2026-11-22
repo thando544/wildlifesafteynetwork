@@ -1,10 +1,19 @@
-import express from 'express';
-import registerRoutes from './src/routes/index.js';
+import express from "express";
+import registerRoutes from "./routes/index.js";
+import { config } from "./config/env.js";
+import { errorHandler } from "./middleware/error-handler.js";
+import notFoundHandler from "./middleware/not-found.js";
+import requestLogger from "./middleware/request-logger.js";
 
 const app = express();
 
-app.use(express.json());
+app.disable("x-powered-by");
+app.use(requestLogger({ enabled: config.nodeEnv !== "test" }));
+app.use(express.json({ limit: "1mb" }));
+
 registerRoutes(app);
 
-export default app;
+app.use(notFoundHandler);
+app.use(errorHandler);
 
+export default app;

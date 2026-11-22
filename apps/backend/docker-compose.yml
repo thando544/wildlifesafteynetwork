@@ -1,0 +1,10 @@
+services:
+  wildlife-safety-network:
+    build: .
+    environment:
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      PORT: 3001
+    ports:
+      - "${PORT:-3001}:3001"
+    restart: unless-stopped
