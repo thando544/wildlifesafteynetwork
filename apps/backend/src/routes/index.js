@@ -4,14 +4,26 @@ import authRoutes from "../modules/auth/auth.routes.js";
 const apiRouter = express.Router();
 
 apiRouter.get("/", (_req, res) => {
-  res.json({ data: { name: "Wildlife Safety Network API", version: "v1" } });
+  res.status(200).json({
+    data: {
+      name: "Wildlife Safety Network API",
+      version: "v1",
+      status: "available",
+      endpoints: {
+        health: "/api/v1/health",
+      },
+    },
+  });
 });
 
 apiRouter.get("/health", (_req, res) => {
-  res.status(200).json({ data: { status: "ok" } });
+  res.status(200).json({
+    data: {
+      status: "ok",
+    },
+  });
 });
 
-// Authentication routes remain intentionally empty until authentication is implemented.
 apiRouter.use("/auth", authRoutes);
 
 export default function registerRoutes(app) {
