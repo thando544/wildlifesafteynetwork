@@ -1,0 +1,270 @@
+%% Wildlife Safety Network — logical ER diagram
+%% Schema prefixes are part of the name because Mermaid entity names cannot contain dots.
+%% Views and SECURITY DEFINER functions live in the api schema and are not entities.
+%% sensitive_report_locations is the only table that stores an exact GPS point.
+%% audit.audit_log is append-only and has no foreign keys, so it is omitted here
+%% rather than drawn as a false relationship. See schema.md.
+
+erDiagram
+  ref_risk_levels ||--o{ ref_species : "default risk"
+  ref_risk_levels ||--o{ ref_safety_instructions : "optional risk"
+  ref_risk_levels ||--o{ reporting_reports : "assigned risk"
+  ref_risk_levels ||--o{ alerting_public_alerts : "shown risk"
+  ref_risk_levels ||--o{ identity_notification_preferences : "minimum risk"
+
+  ref_zone_types ||--o{ ref_geographic_zones : classifies
+
+  ref_species ||--o{ reporting_reports : "optional subject"
+  ref_species ||--o{ ref_safety_instructions : "optional subject"
+  ref_species ||--o{ alerting_public_alerts : "optional subject"
+  ref_species ||--o{ identity_notification_species_mutes : muted_by
+
+  ref_data_sources ||--o{ reporting_reports : "ingested via"
+
+  ref_roles ||--o{ ref_role_permissions : grants
+  ref_permissions ||--o{ ref_role_permissions : "included in"
+  ref_roles ||--o{ identity_user_roles : "granted as"
+
+  ref_geographic_zones ||--o{ reporting_report_zone_hits : "matched at ingest"
+  ref_geographic_zones ||--o{ alerting_public_alerts : "named place"
+  ref_geographic_zones ||--o{ ref_emergency_contacts : "optional area"
+
+  identity_users ||--|| identity_user_profiles : has
+  identity_users ||--o{ identity_user_follows : follows
+  identity_users ||--o{ identity_user_follows : "followed by"
+  identity_users ||--o{ identity_user_roles : "holds history"
+  identity_users ||--o{ identity_auth_sessions : "refresh sessions"
+  identity_users ||--|| identity_notification_preferences : prefers
+  identity_users ||--o{ identity_notification_species_mutes : mutes
+  identity_users ||--o{ reporting_reports : files
+  identity_users ||--o{ reporting_confirmations : confirms
+  identity_users ||--o{ reporting_verifications : reviews
+  identity_users ||--o{ alerting_notifications : receives
+
+  reporting_reports ||--|| sensitive_report_locations : "exact point"
+  reporting_reports ||--o{ reporting_report_zone_hits : "zone decision"
+  reporting_reports ||--o{ reporting_report_media : photographs
+  reporting_reports ||--o{ reporting_confirmations : "community confirms"
+  reporting_reports ||--o{ reporting_verifications : "official reviews"
+  reporting_reports ||--o| alerting_public_alerts : "publishes at most one"
+
+  alerting_public_alerts ||--o{ alerting_notifications : "notifies from"
+
+  ref_risk_levels {
+    text code PK
+    smallint rank UK
+    text label
+    text public_summary
+    boolean is_active
+  }
+
+  ref_zone_types {
+    text code PK
+    text alert_policy
+    int default_precision_meters
+  }
+
+  ref_species {
+    uuid id PK
+    text code UK
+    text common_name UK
+    text species_group
+    text default_risk_code FK
+    boolean is_active
+  }
+
+  ref_data_sources {
+    text code PK
+    boolean is_automated
+    smallint trust_rank
+  }
+
+  ref_roles {
+    text code PK
+    boolean is_staff
+  }
+
+  ref_permissions {
+    text code PK
+    text description
+  }
+
+  ref_role_permissions {
+    text role_code PK_FK
+    text permission_code PK_FK
+  }
+
+  ref_geographic_zones {
+    uuid id PK
+    text name
+    text zone_type_code FK
+    geography boundary
+    boolean is_active
+    text source_note
+  }
+
+  ref_safety_instructions {
+    uuid id PK
+    uuid species_id FK
+    text risk_code FK
+    text activity_context
+    text title
+    text body
+    boolean is_active
+  }
+
+  ref_emergency_contacts {
+    uuid id PK
+    text name
+    text organization
+    text phone
+    uuid zone_id FK
+    text contact_kind
+    boolean is_public
+    boolean is_active
+  }
+
+  identity_users {
+    uuid id PK
+    citext email UK
+    citext username UK
+    text password_hash
+    text status
+    timestamptz email_verified_at
+    timestamptz last_login_at
+  }
+
+  identity_user_profiles {
+    uuid user_id PK_FK
+    text display_name
+    text locality
+    text account_kind
+    text phone
+    text avatar_storage_key
+  }
+
+  identity_user_follows {
+    uuid follower_id PK_FK
+    uuid followee_id PK_FK
+    timestamptz created_at
+  }
+
+  identity_user_roles {
+    uuid id PK
+    uuid user_id FK
+    text role_code FK
+    uuid granted_by FK
+    timestamptz revoked_at
+  }
+
+  identity_auth_sessions {
+    uuid id PK
+    uuid user_id FK
+    text token_hash UK
+    timestamptz expires_at
+    timestamptz revoked_at
+    inet client_ip
+  }
+
+  identity_notification_preferences {
+    uuid user_id PK_FK
+    boolean nearby_alerts_enabled
+    int radius_meters
+    text minimum_risk_code FK
+    boolean in_app_enabled
+    boolean push_enabled
+    boolean email_enabled
+    time quiet_hours_start
+    time quiet_hours_end
+  }
+
+  identity_notification_species_mutes {
+    uuid user_id PK_FK
+    uuid species_id PK_FK
+  }
+
+  reporting_reports {
+    uuid id PK
+    uuid reporter_user_id FK
+    uuid species_id FK
+    text species_note
+    text report_kind
+    text source_code FK
+    text visibility
+    text status
+    text risk_code FK
+    text publication_outcome
+    timestamptz observed_at
+    int animal_count
+    text activity_context
+    text summary
+    uuid idempotency_key
+  }
+
+  sensitive_report_locations {
+    uuid report_id PK_FK
+    geography position
+    numeric accuracy_meters
+    timestamptz recorded_at
+  }
+
+  reporting_report_zone_hits {
+    uuid report_id PK_FK
+    uuid zone_id PK_FK
+    text zone_type_code
+    text alert_policy
+  }
+
+  reporting_report_media {
+    uuid id PK
+    uuid report_id FK
+    text storage_key UK
+    text content_type
+    int byte_size
+    text sha256
+    text visibility
+    boolean exif_stripped
+  }
+
+  reporting_confirmations {
+    uuid report_id PK_FK
+    uuid user_id PK_FK
+    timestamptz created_at
+  }
+
+  reporting_verifications {
+    uuid id PK
+    uuid report_id FK
+    uuid verifier_user_id FK
+    text outcome
+    text notes
+    timestamptz created_at
+  }
+
+  alerting_public_alerts {
+    uuid id PK
+    uuid report_id FK_UK
+    uuid species_id FK
+    text risk_code FK
+    uuid zone_id FK
+    geography public_position
+    int precision_meters
+    text headline
+    text status
+    text verification_state
+    timestamptz observed_at
+    timestamptz expires_at
+    timestamptz published_at
+  }
+
+  alerting_notifications {
+    uuid id PK
+    uuid recipient_user_id FK
+    uuid public_alert_id FK
+    text channel
+    text title
+    text body
+    text status
+    timestamptz read_at
+    text provider_message_id
+  }
